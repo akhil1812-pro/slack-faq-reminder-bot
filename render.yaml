@@ -4,15 +4,14 @@ services:
     env: python
     buildCommand: |
       pip install --upgrade pip
-      pip install "python==3.11.*" || true
       pip install -r requirements.txt
     startCommand: python manage.py runserver 0.0.0.0:$PORT
     envVars:
-  - key: SLACK_CLIENT_ID
-    value: dummy_id
-  - key: SLACK_CLIENT_SECRET
-    value: dummy_secret
-  - key: SLACK_VERIFICATION_TOKEN
-    value: dummy_token
-  - key: SLACK_BOT_USER_TOKEN
-    value: dummy_bot_token
+      - key: SLACK_CLIENT_ID
+        value: dummy_id
+      - key: SLACK_CLIENT_SECRET
+        value: dummy_secret
+      - key: SLACK_VERIFICATION_TOKEN
+        value: dummy_token
+      - key: SLACK_BOT_USER_TOKEN
+        value: dummy_bot_token
