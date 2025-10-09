@@ -2,6 +2,7 @@ services:
   - type: web
     name: slack-bot-web
     env: python
+    pythonVersion: 3.11
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py runserver 0.0.0.0:$PORT
     envVars:
