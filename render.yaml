@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: slack-bot-web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py runserver 0.0.0.0:$PORT
+    envVars:
+      - key: SLACK_CLIENT_ID
+        value: your_client_id
+      - key: SLACK_CLIENT_SECRET
+        value: your_client_secret
+      - key: SLACK_VERIFICATION_TOKEN
+        value: your_verification_token
+      - key: SLACK_BOT_USER_TOKEN
+        value: your_bot_token
