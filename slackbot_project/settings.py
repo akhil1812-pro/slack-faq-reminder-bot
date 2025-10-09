@@ -26,9 +26,7 @@ SECRET_KEY = 'django-insecure-g87gjv23jxu=wmg^*je9y8_!88@g=2)l1a%h0w&7#_t$jn(^g^
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'piezometrical-proequality-sabine.ngrok-free.dev',  # ✅ Add your ngrok domain
+    'slack-bot-wlyn.onrender.com'
 ]
 
 
