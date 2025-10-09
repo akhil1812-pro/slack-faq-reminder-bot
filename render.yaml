@@ -8,11 +8,11 @@ services:
       pip install -r requirements.txt
     startCommand: python manage.py runserver 0.0.0.0:$PORT
     envVars:
-      - key: SLACK_CLIENT_ID
-        sync: false
-      - key: SLACK_CLIENT_SECRET
-        sync: false
-      - key: SLACK_VERIFICATION_TOKEN
-        sync: false
-      - key: SLACK_BOT_USER_TOKEN
-        sync: false
+  - key: SLACK_CLIENT_ID
+    value: dummy_id
+  - key: SLACK_CLIENT_SECRET
+    value: dummy_secret
+  - key: SLACK_VERIFICATION_TOKEN
+    value: dummy_token
+  - key: SLACK_BOT_USER_TOKEN
+    value: dummy_bot_token
