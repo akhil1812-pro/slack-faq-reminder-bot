@@ -25,9 +25,7 @@ SECRET_KEY = 'django-insecure-g87gjv23jxu=wmg^*je9y8_!88@g=2)l1a%h0w&7#_t$jn(^g^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'slack-bot-wlyn.onrender.com'
-]
+ALLOWED_HOSTS = ['*']
 
 
 
