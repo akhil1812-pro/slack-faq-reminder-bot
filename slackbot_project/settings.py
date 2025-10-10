@@ -128,11 +128,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ----------------------------------------------
 # use your keys 
 import os
+from dotenv import load_dotenv
+load_dotenv()  # take environment variables from .env.
 SLACK_CLIENT_ID = os.getenv("SLACK_CLIENT_ID")
 
 SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET")
 
 SLACK_VERIFICATION_TOKEN = os.getenv("SLACK_VERIFICATION_TOKEN")
+SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 
 
 SLACK_BOT_USER_TOKEN = os.getenv("SLACK_BOT_USER_TOKEN")

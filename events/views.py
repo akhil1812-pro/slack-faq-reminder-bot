@@ -133,7 +133,13 @@ class SlashCommandView(APIView):
                         reply += f"• {faq.question}\n"
                 else:
                     reply = "There are no FAQs available right now. Please check back later."
+                from django.http import JsonResponse
+                import os
 
+                def slack_event_view(request):
+                    token = os.getenv("SLACK_BOT_TOKEN")
+                    secret = os.getenv("SLACK_SIGNING_SECRET")
+                    # Use these to verify and respond to Slack
             elif "faq" in text:
                 matched = None
                 faqs = FAQ.objects.all()
