@@ -1,3 +1,4 @@
+from rest_framework.views import APIView
 class SlashCommandView(APIView):
     def post(self, request, *args, **kwargs):
         logger.warning(f"Slash command received: {request.data}")
