@@ -1,9 +1,32 @@
+import json
+import logging
+import re
+from datetime import datetime, timedelta
+
+from django.conf import settings
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from slack_sdk import WebClient
+import dateparser
+
+from .models import FAQ
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Load tokens from settings
+SLACK_VERIFICATION_TOKEN = getattr(settings, 'SLACK_VERIFICATION_TOKEN', None)
+SLACK_BOT_USER_TOKEN = getattr(settings, 'SLACK_BOT_USER_TOKEN', None)
+
+# Initialize Slack client
+Client = WebClient(token=SLACK_BOT_USER_TOKEN)
+
+
 class SlashCommandView(APIView):
     def post(self, request, *args, **kwargs):
         logger.warning(f"Slash command received: {request.data}")
 
-        # Optional: verify token
         if request.data.get('token') != SLACK_VERIFICATION_TOKEN:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
@@ -87,3 +110,77 @@ class SlashCommandView(APIView):
             reply = "Something went wrong while processing your command."
 
         return Response({"text": reply}, status=status.HTTP_200_OK)
+
+
+class Events(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            slack_message = request.data
+            logger.warning(f"Incoming Slack message: {slack_message}")
+
+            if slack_message.get('token') != SLACK_VERIFICATION_TOKEN:
+                return Response(status=status.HTTP_403_FORBIDDEN)
+
+            if slack_message.get('type') == 'url_verification':
+                return Response({"challenge": slack_message.get("challenge")}, status=status.HTTP_200_OK)
+
+            event = slack_message.get('event', {})
+            if event:
+                if event.get('bot_id') or event.get('subtype') == 'bot_message':
+                    return Response(status=status.HTTP_200_OK)
+
+                user = event.get('user')
+                text = event.get('text', '')
+                channel = event.get('channel')
+
+                bot_text = None
+                if user and text:
+                    lowered = text.lower()
+                    if 'hello' in lowered:
+                        bot_text = f"Hello Akhil <@{user}> 👋🎉 How can I help you? 🤖"
+                    elif "hi" in lowered:
+                        bot_text = f"Hi <@{user}> 👋"
+                    elif "help" in lowered:
+                        bot_text = (
+                            "Here's what I can do:\n"
+                            "- Say `hi` → I’ll greet you\n"
+                            "- Say `joke` → I’ll tell you a joke\n"
+                            "- Say `status` → I’ll check my health\n"
+                            "- Say `help` → I’ll show this message again"
+                        )
+                    elif "joke" in lowered:
+                        bot_text = "Why don’t programmers like nature? It has too many bugs. 🐛"
+                    elif "status" in lowered:
+                        bot_text = "All systems go! ✅ I'm running smoothly."
+
+                if bot_text:
+                    Client.chat_postMessage(channel=channel, text=bot_text)
+
+            return Response(status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Unhandled exception: {e}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class InteractionView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            payload = json.loads(request.data.get('payload'))
+            user_id = payload['user']['id']
+            action_value = payload['actions'][0]['value']
+            channel_id = payload['channel']['id']
+
+            mood_map = {
+                "great": "😊 Glad you're feeling great!",
+                "okay": "😐 Hope your day gets better!",
+                "meh": "😞 Sending good vibes your way!"
+            }
+
+            reply = mood_map.get(action_value, "Thanks for checking in!")
+            Client.chat_postMessage(channel=channel_id, text=f"<@{user_id}> {reply}")
+            return Response(status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Interaction error: {e}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
