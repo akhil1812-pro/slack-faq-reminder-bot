@@ -143,17 +143,16 @@ class SlashCommandView(APIView):
             elif "faq" in text:
                 matched = None
                 faqs = FAQ.objects.all()
-                if faqs:
-                    for faq in faqs:
-                        if faq.question.lower() in text:
-                            matched = faq.answer
-                            break
-                else:
+                for faq in faqs:
+                    if faq.question.lower() in text or text in faq.question.lower():
+                        matched = faq.answer
+                        break
+                if not matched:
                     for key in FAQS:
-                        if key in text:
+                        if key in text or text in key:
                             matched = FAQS[key]
                             break
-                reply = matched or "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel." 
+                reply = matched or "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel."
             elif "remind" in text:
                 parts = text.split("remind me to", 1)
                 if len(parts) < 2:
@@ -172,7 +171,7 @@ class SlashCommandView(APIView):
                     time_phrase = time_phrase.strip()
 
                     # Try to extract minutes from "in X minutes"
-                    match = re.match(r"(\d+)\s*minute", time_phrase)
+                    match = re.search(r"(\d+)\s*(min|mins|minutes?)", time_phrase)
                     if match:
                         minutes = int(match.group(1))
                         reminder_time = datetime.now() + timedelta(minutes=minutes)
