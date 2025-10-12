@@ -143,14 +143,17 @@ class SlashCommandView(APIView):
             elif "faq" in text:
                 matched = None
                 faqs = FAQ.objects.all()
-                for faq in faqs:
-                    if faq.question.lower() in text:
-                        matched = faq.answer
-                        break           
-                if matched:
-                    reply = matched
+                if faqs:
+                    for faq in faqs:
+                        if faq.question.lower() in text:
+                            matched = faq.answer
+                            break
                 else:
-                    reply = "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel."
+                    for key in FAQS:
+                        if key in text:
+                            matched = FAQS[key]
+                            break
+                reply = matched or "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel." 
             elif "remind" in text:
                 parts = text.split("remind me to", 1)
                 if len(parts) < 2:
