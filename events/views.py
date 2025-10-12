@@ -142,16 +142,20 @@ class SlashCommandView(APIView):
                     # Use these to verify and respond to Slack
             elif "faq" in text:
                 matched = None
-                faqs = FAQ.objects.all()
-                for faq in faqs:
-                    if faq.question.lower() in text or text in faq.question.lower():
-                        matched = faq.answer
-                        break
-                if not matched:
+                try:
+                    faqs = FAQ.objects.all()
+                    for faq in faqs:
+                        if faq.question.lower() in text or text in faq.question.lower():
+                            matched = faq.answer
+                            break
+                except Exception as e:
+                    logger.warning(f"FAQ DB error: {e}")
+                    # fallback to hardcoded FAQS
                     for key in FAQS:
                         if key in text or text in key:
                             matched = FAQS[key]
                             break
+
                 reply = matched or "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel."
             elif "remind" in text:
                 parts = text.split("remind me to", 1)
@@ -173,8 +177,8 @@ class SlashCommandView(APIView):
                     # Try to extract minutes from "in X minutes"
                     match = re.search(r"(\d+)\s*(min|mins|minutes?)", time_phrase)
                     if match:
-                        minutes = int(match.group(1))
-                        reminder_time = datetime.now() + timedelta(minutes=minutes)
+                            minutes = int(match.group(1))
+                            reminder_time = datetime.now() + timedelta(minutes=minutes)
                     else:
                         reminder_time = dateparser.parse(time_phrase)
 
