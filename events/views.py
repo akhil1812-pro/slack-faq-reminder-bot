@@ -70,6 +70,7 @@ class Events(APIView):
                 user = event.get('user')
                 text = event.get('text', '')
                 channel = event.get('channel')
+                lowered = text.lower() if isinstance(text, str) else ''
 
                 bot_text = None
                 if user and text:
