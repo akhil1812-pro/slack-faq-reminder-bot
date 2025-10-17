@@ -85,13 +85,18 @@ class Events(APIView):
                         )
                     elif "hi" in lowered:
                         bot_text = f"Hi <@{user}> 👋"
-                    elif "help" in lowered:
-                        bot_text = (
-                            "Here's what I can do:\n"
-                            "- Say `hi` → I’ll greet you\n"
-                            "- Say `joke` → I’ll tell you a joke\n"
-                            "- Say `status` → I’ll check my health\n"
-                            "- Say `help` → I’ll show this message again"
+                    elif "help" in text:
+                        reply = (
+                            "*Welcome to MyBot!* 🤖\n"
+                            "Here’s what I can do:\n"
+                            "• `/mybot faq [topic]` → Get answers to common questions\n"
+                            "• `/mybot list faqs` → See all available topics\n"
+                            "• `/mybot feedback [your thoughts]` → Share feedback\n"
+                            "• `/mybot remind me to [task] in [time]` → Set reminders\n"
+                            "• `/mybot checkin` → Share how you're feeling\n"
+                            "• `/mybot joke` → Hear a tech joke\n"
+                            "• `/mybot status` → Check bot health\n"
+                            "Try `/mybot faq leave policy` or `/mybot feedback I love this bot!`"
                         )
                     elif "joke" in lowered:
                         bot_text = "Why don’t programmers like nature? It has too many bugs. 🐛"
