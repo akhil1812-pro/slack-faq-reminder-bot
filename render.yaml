@@ -5,7 +5,9 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-    startCommand: gunicorn slackbot_project.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: |
+      python manage.py migrate &&
+      gunicorn slackbot_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SLACK_CLIENT_ID
         value: dummy_id
