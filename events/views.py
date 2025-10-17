@@ -9,7 +9,7 @@ import dateparser
 import re
 import pytz
 from datetime import datetime, timedelta
-from .models import FAQ
+from .models import FAQ, Feedback
 
 FAQS = {
     "leave policy": "📄 *Leave Policy*\nYou get 24 paid leaves per year. Carry forward up to 12 leaves.",
@@ -147,15 +147,13 @@ class SlashCommandView(APIView):
                     reply = "*Here are the available FAQ topics:*\n"
                     for key in FAQS:
                         reply += f"• {key}\n"
-            elif "feedback" in text:
+            elif text.startswith("feedback"):
                 feedback_text = text.replace("feedback", "").strip()
                 if not feedback_text:
                     reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
                 else:
-                    from .models import Feedback
                     Feedback.objects.create(user_id=user_id, text=feedback_text)
                     reply = "Thanks for your feedback! 🙌"
-
             elif "faq" in text:
                 matched = None
                 try:
@@ -204,6 +202,8 @@ class SlashCommandView(APIView):
                         local_time = reminder_time.astimezone(india_tz)
 
                         if post_at - now < 60:
+                            post_at = now + 120
+                            reply = f"Reminder set
                             post_at = now + 120
                             reply = f"Reminder set for *{task}* in 2 minutes (adjusted for safety)."
                         else:
