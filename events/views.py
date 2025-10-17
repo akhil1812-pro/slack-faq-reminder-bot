@@ -71,8 +71,7 @@ class Events(APIView):
                     "• `/mybot checkin` → Share how you're feeling\n"
                     "• `/mybot help` → See all commands"
                 )       
-                Client.chat_postMessage(channel=channel, text=welcome_text)
-                return Response(status=status.HTTP_200_OK)
+                
 
             if slack_message.get('type') == 'url_verification':
                 return Response({"challenge": slack_message.get("challenge")}, status=status.HTTP_200_OK)
