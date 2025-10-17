@@ -7,6 +7,7 @@ services:
       pip install -r requirements.txt
     startCommand: |
       python manage.py migrate &&
+      echo "from django.contrib.auth.models import User; User.objects.create_superuser('akhilog', 'akhilbhojne@gmail.com', '1812@Django')" | python manage.py shell &&
       gunicorn slackbot_project.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SLACK_CLIENT_ID
