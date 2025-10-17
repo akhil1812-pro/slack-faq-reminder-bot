@@ -73,9 +73,15 @@ class Events(APIView):
 
                 bot_text = None
                 if user and text:
-                    lowered = text.lower()
-                    if 'hello' in lowered:
-                        bot_text = f"Hello Akhil <@{user}> 👋🎉 How can I help you? 🤖"
+                    if 'hello' in lowered or 'start' in lowered:
+                        bot_text = (
+                            f"Hi <@{user}> 👋 I'm your team assistant bot!\n"
+                            "You can try commands like:\n"
+                            "• `/mybot faq leave policy`\n"
+                            "• `/mybot remind me to stretch in 30 minutes`\n"
+                            "• `/mybot checkin`\n"
+                            "• `/mybot help` for more"
+                        )
                     elif "hi" in lowered:
                         bot_text = f"Hi <@{user}> 👋"
                     elif "help" in lowered:
