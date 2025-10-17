@@ -203,7 +203,7 @@ class SlashCommandView(APIView):
 
                         if post_at - now < 60:
                             post_at = now + 120
-                            reply = f"Reminder set
+                            reply = f"Reminder set"
                             post_at = now + 120
                             reply = f"Reminder set for *{task}* in 2 minutes (adjusted for safety)."
                         else:
