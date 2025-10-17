@@ -86,7 +86,7 @@ class Events(APIView):
                     elif "hi" in lowered:
                         bot_text = f"Hi <@{user}> 👋"
                     elif "help" in text:
-                        reply = (
+                        bot_text = (
                             "*Welcome to MyBot!* 🤖\n"
                             "Here’s what I can do:\n"
                             "• `/mybot faq [topic]` → Get answers to common questions\n"
