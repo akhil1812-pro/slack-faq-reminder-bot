@@ -30,7 +30,7 @@ A smart Slack bot built with Django and Slack SDK that handles FAQs, reminders, 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/slack-faq-reminder-bot.git
+git clone https://github.com/akhil1812-pro/slack-faq-reminder-bot.git
 cd slack-faq-reminder-bot
 ```
 
