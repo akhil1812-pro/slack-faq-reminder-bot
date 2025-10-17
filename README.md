@@ -1,43 +1,98 @@
-# Slack Assistant Bot 🤖
+# 🤖 Slack FAQ & Reminder Bot
 
-A Django-powered Slack bot that handles reminders, check-ins, and dynamic FAQs for teams.
+A smart Slack bot built with Django and Slack SDK that handles FAQs, reminders, check-ins, and interactive responses — perfect for teams who want quick answers and light automation inside Slack.
+
+---
 
 ## 🚀 Features
 
-- 💬 Dynamic FAQ system powered by Django admin
-- ✅ Smart reminders triggered by keywords or buttons
-- 👋 Onboarding flow for new users
-- 🎯 Slash command support
-- `/mybot remind` — Schedule smart reminders like “remind me to stretch in 30 minutes”
-- `/mybot faq` — Ask HR-style questions like “leave policy” or “salary credit date”
-- `/mybot list faqs` — View all available FAQ topics
-- `/mybot checkin` — Send a mood check-in with interactive buttons
+- `/mybot help` — Lists all available commands
+- `/mybot faq [topic]` — Answers company FAQs (e.g. leave policy, benefits)
+- `/mybot list faqs` — Lists all available FAQ topics
+- `/mybot remind me to [task] in/at [time]` — Schedules reminders
+- `/mybot checkin` — Sends a mood check-in with interactive buttons
+- Responds to messages like “hi”, “joke”, “status” in channels
+
+---
+
+## 🛠️ Tech Stack
+
+- Django + Django REST Framework
+- Slack SDK (`slack_sdk`)
+- Render for deployment
+- Python 3.13
+- PostgreSQL (optional for storing FAQs)
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/yourusername/slack-faq-reminder-bot.git
+cd slack-faq-reminder-bot
+```
+
+### 2. Install dependencies
+
+```
+pip install -r requirements.txt
+```
+
+### 3. Set environment variables
+Create a .env file
+
+```
+SLACK_BOT_USER_TOKEN=...
+SLACK_VERIFICATION_TOKEN=...
+SLACK_SIGNING_SECRET=...
+```
+
+### 4. Run locally
+
+```
+python manage.py runserver
+```
+
+---
 
 
-## 🛠️ Setup Instructions
+## 🌐 Slack App Configuration
 
-1. **Clone the repo**  
-   ```bash
-   git clone https://github.com/akhil1812-pro/slack-bot.git
-   cd slack-bot
+### In your Slack App dashboard:
 
-2. **Create a virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+- Slash Commands → /mybot → Request URL:
+https://yourdomain.com/slack/commands/
+- Interactivity & Shortcuts → Request URL:
+https://yourdomain.com/slack/interactions/
+- Event Subscriptions → Subscribe to message.channels →
+Request URL: https://yourdomain.com/slack/events/
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
+---
 
-4. **- Create a .env file, add the following environment variables:**
-   ```bash
-   SLACK_CLIENT_ID=your_client_id
-   SLACK_CLIENT_SECRET=your_client_secret
-   SLACK_VERIFICATION_TOKEN=your_verification_token
-   SLACK_BOT_USER_TOKEN=your_bot_token
 
-5. **Run the server**
-   ```bash
-   python manage.py runserver
+## 📦 Deployment (Render)
+
+Set your start command:
+```
+gunicorn slackbot_project.wsgi:application --bind 0.0.0.0:$PORT
+```
+Add environment variables in Render dashboard.
+
+---
+
+## 🧪Example Commands
+
+```
+/mybot faq leave policy
+/mybot list faqs
+/mybot remind me to stretch in 30 minutes
+/mybot checkin
+```
+
+
+
+
+
 
