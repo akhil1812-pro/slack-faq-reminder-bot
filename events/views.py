@@ -147,6 +147,15 @@ class SlashCommandView(APIView):
                     reply = "*Here are the available FAQ topics:*\n"
                     for key in FAQS:
                         reply += f"• {key}\n"
+            elif "feedback" in text:
+                feedback_text = text.replace("feedback", "").strip()
+                if not feedback_text:
+                    reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
+                else:
+                    from .models import Feedback
+                    Feedback.objects.create(user_id=user_id, text=feedback_text)
+                    reply = "Thanks for your feedback! 🙌"
+
             elif "faq" in text:
                 matched = None
                 try:
