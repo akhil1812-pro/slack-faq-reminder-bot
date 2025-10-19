@@ -285,5 +285,23 @@ class SlashCommandView(APIView):
         except Exception as e:
             logger.error(f"Slash command error: {e}", exc_info=True)
             reply = "Something went wrong while processing your command."
+            return Response({"text": reply}, status=status.HTTP_200_OK)
 
-        return Response({"text": reply}, status=status.HTTP_200_OK)
+    class OAuthRedirectView(APIView):
+        def get(self, request, *args, **kwargs):
+            code = request.GET.get('code')
+            if not code:
+                return Response({"error": "Missing code"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                response = Client.oauth_v2_access(
+                    client_id=settings.SLACK_CLIENT_ID,
+                    client_secret=settings.SLACK_CLIENT_SECRET,
+                    code=code,
+                    redirect_uri="https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
+                )
+                logger.warning(f"OAuth response: {response}")
+                return Response({"text": "Thanks! MyBot is now installed in your workspace."})
+            except Exception as e:
+                logger.error(f"OAuth error: {e}", exc_info=True)
+                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
