@@ -58,8 +58,6 @@ class Events(APIView):
 
             if slack_message.get('token') != SLACK_VERIFICATION_TOKEN:
                 return Response(status=status.HTTP_403_FORBIDDEN)
-            
-            
 
             if slack_message.get('type') == 'url_verification':
                 return Response({"challenge": slack_message.get("challenge")}, status=status.HTTP_200_OK)
@@ -69,7 +67,24 @@ class Events(APIView):
                 if event.get('bot_id') or event.get('subtype') == 'bot_message':
                     return Response(status=status.HTTP_200_OK)
 
-                user = event.get('user')
+                # ✅ Welcome message on channel join
+                if event.get('type') == 'member_joined_channel' and event.get('user') and event.get('channel'):
+                    user = event['user']
+                    channel = event['channel']
+                    welcome_text = (
+                        f"Hi <@{user}> 👋 Thanks for adding me!\n"
+                        "Here’s what I can do:\n"
+                        "• `/mybot faq [topic]` → Get answers to common questions\n"
+                        "• `/mybot list faqs` → See all available topics\n"
+                        "• `/mybot feedback [your thoughts]` → Share feedback\n"
+                        "• `/mybot remind me to [task] in [time]` → Set reminders\n"
+                        "• `/mybot checkin` → Share how you're feeling\n"
+                        "• `/mybot help` → See all commands"
+                    )
+                    Client.chat_postMessage(channel=channel, text=welcome_text)
+                    return Response(status=status.HTTP_200_OK)
+                
+                user = event.get('user  ')    
                 text = event.get('text', '')
                 channel = event.get('channel')
                 lowered = text.lower() if isinstance(text, str) else ''
@@ -133,7 +148,18 @@ class SlashCommandView(APIView):
             if "hi" in text:
                 reply = f"Hi <@{user_id}> 👋"
             elif "help" in text:
-                reply = "Try `/mybot joke`, `/mybot status`, `/mybot faq`, `/mybot remind`, or `/mybot checkin`"
+                reply = (
+                    "*Welcome to MyBot!* 🤖\n"
+                    "Here’s what I can do:\n"
+                    "• `/mybot faq [topic]` → Get answers to common questions\n"
+                    "• `/mybot list faqs` → See all available topics\n"
+                    "• `/mybot feedback [your thoughts]` → Share feedback\n"
+                    "• `/mybot remind me to [task] in [time]` → Set reminders\n"
+                    "• `/mybot checkin` → Share how you're feeling\n"
+                    "• `/mybot joke` → Hear a tech joke\n"
+                    "• `/mybot status` → Check bot health\n"
+                    "Try `/mybot faq leave policy` or `/mybot feedback I love this bot!`"
+                )
             elif "joke" in text:
                 reply = "Why do Java developers wear glasses? Because they don’t C#."
             elif "status" in text:
@@ -209,8 +235,6 @@ class SlashCommandView(APIView):
                         local_time = reminder_time.astimezone(india_tz)
 
                         if post_at - now < 60:
-                            post_at = now + 120
-                            reply = f"Reminder set"
                             post_at = now + 120
                             reply = f"Reminder set for *{task}* in 2 minutes (adjusted for safety)."
                         else:
