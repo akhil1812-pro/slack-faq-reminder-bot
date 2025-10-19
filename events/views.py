@@ -68,23 +68,26 @@ class Events(APIView):
                     return Response(status=status.HTTP_200_OK)
 
                 # ✅ Welcome message on channel join
+                
                 if event.get('type') == 'member_joined_channel' and event.get('user') and event.get('channel'):
                     user = event['user']
                     channel = event['channel']
                     welcome_text = (
-                        f"Hi <@{user}> 👋 Thanks for adding me!\n"
-                        "Here’s what I can do:\n"
-                        "• `/mybot faq [topic]` → Get answers to common questions\n"
-                        "• `/mybot list faqs` → See all available topics\n"
-                        "• `/mybot feedback [your thoughts]` → Share feedback\n"
-                        "• `/mybot remind me to [task] in [time]` → Set reminders\n"
-                        "• `/mybot checkin` → Share how you're feeling\n"
-                        "• `/mybot help` → See all commands"
+                    f"Hi <@{user}> 👋 Thanks for adding me!\n"
+                    "Here’s what I can do:\n"
+                    "• `/mybot faq [topic]` → Get answers to common questions\n"
+                    "• `/mybot list faqs` → See all available topics\n"
+                    "• `/mybot feedback [your thoughts]` → Share feedback\n"
+                    "• `/mybot remind me to [task] in [time]` → Set reminders\n"
+                    "• `/mybot checkin` → Share how you're feeling\n"
+                    "• `/mybot help` → See all commands"
                     )
                     Client.chat_postMessage(channel=channel, text=welcome_text)
                     return Response(status=status.HTTP_200_OK)
-                
-                user = event.get('user  ')    
+
+                # ✅ Fix user extraction
+
+                user = event.get('user')
                 text = event.get('text', '')
                 if not text and event.get('blocks'):
                     try:
