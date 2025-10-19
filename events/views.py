@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from slack_sdk import WebClient
+from django.shortcuts import redirect
 import json
 import logging
 import dateparser
@@ -287,21 +288,23 @@ class SlashCommandView(APIView):
             reply = "Something went wrong while processing your command."
             return Response({"text": reply}, status=status.HTTP_200_OK)
 
-    class OAuthRedirectView(APIView):
-        def get(self, request, *args, **kwargs):
-            code = request.GET.get('code')
-            if not code:
-                return Response({"error": "Missing code"}, status=status.HTTP_400_BAD_REQUEST)
+class OAuthRedirectView(APIView):
+    def get(self, request, *args, **kwargs):
+        code = request.GET.get('code')
+        if not code:
+            return Response({"error": "Missing code"}, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                response = Client.oauth_v2_access(
-                    client_id=settings.SLACK_CLIENT_ID,
-                    client_secret=settings.SLACK_CLIENT_SECRET,
-                    code=code,
-                    redirect_uri="https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
-                )
-                logger.warning(f"OAuth response: {response}")
-                return Response({"text": "Thanks! MyBot is now installed in your workspace."})
-            except Exception as e:
-                logger.error(f"OAuth error: {e}", exc_info=True)
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        try:
+            response = Client.oauth_v2_access(
+                client_id=settings.SLACK_CLIENT_ID,
+                client_secret=settings.SLACK_CLIENT_SECRET,
+                code=code,
+                redirect_uri="https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
+            )
+            logger.warning(f"OAuth response: {response}")
+
+            # ✅ Redirect user back to Slack
+            return redirect("https://slack.com/app_redirect")
+        except Exception as e:
+            logger.error(f"OAuth error: {e}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
