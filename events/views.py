@@ -86,6 +86,12 @@ class Events(APIView):
                 
                 user = event.get('user  ')    
                 text = event.get('text', '')
+                if not text and event.get('blocks'):
+                    try:
+                        elements = event['blocks'][0]['elements'][0]['elements']
+                        text = ''.join([el['text'] for el in elements if el['type'] == 'text'])
+                    except Exception as e:
+                        logger.warning(f"Failed to parse text from blocks: {e}")
                 channel = event.get('channel')
                 lowered = text.lower() if isinstance(text, str) else ''
 
