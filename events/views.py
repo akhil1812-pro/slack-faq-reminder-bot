@@ -26,6 +26,17 @@ SLACK_BOT_USER_TOKEN = getattr(settings, 'SLACK_BOT_USER_TOKEN', None)
 Client = WebClient(token=SLACK_BOT_USER_TOKEN)
 
 
+class DirectInstallView(APIView):
+    def get(self, request, *args, **kwargs):
+        slack_auth_url = (
+            "https://slack.com/oauth/v2/authorize"
+            f"?client_id={settings.SLACK_CLIENT_ID}"
+            f"&scope=commands,chat:write,chat:write.public,users:read,channels:read,app_mentions:read"
+            f"&redirect_uri=https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
+        )
+        return redirect(slack_auth_url)
+
+
 class InteractionView(APIView):
     def post(self, request, *args, **kwargs):
         try:
