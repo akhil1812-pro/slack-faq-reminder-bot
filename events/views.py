@@ -313,6 +313,8 @@ class OAuthRedirectView(APIView):
                 redirect_uri="https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
             )
             logger.warning(f"OAuth response: {response}")
+            logger.warning(f"Client ID: {settings.SLACK_CLIENT_ID}")
+            logger.warning(f"Client Secret: {settings.SLACK_CLIENT_SECRET}")
 
             # ✅ Redirect user back to Slack
             return redirect("https://slack.com/app_redirect")
