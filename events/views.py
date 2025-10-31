@@ -1,6 +1,18 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+try:
+    from rest_framework.views import APIView
+    from rest_framework.response import Response
+    from rest_framework import status
+except Exception:
+    # Fallbacks when Django REST Framework is not installed (keeps signatures compatible)
+    from django.views import View as APIView
+    from django.http import JsonResponse as Response
+
+    class status:
+        HTTP_200_OK = 200
+        HTTP_400_BAD_REQUEST = 400
+        HTTP_403_FORBIDDEN = 403
+        HTTP_500_INTERNAL_SERVER_ERROR = 500
+
 from django.conf import settings
 from slack_sdk import WebClient
 from django.shortcuts import redirect
