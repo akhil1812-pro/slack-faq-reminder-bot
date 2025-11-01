@@ -140,3 +140,15 @@ SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
 
 SLACK_BOT_USER_TOKEN = os.getenv("SLACK_BOT_USER_TOKEN")
 
+import os
+
+STATIC_URL = '/static/'
+
+# ✅ This tells Django where to collect static files for Render
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# (optional but good)
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
