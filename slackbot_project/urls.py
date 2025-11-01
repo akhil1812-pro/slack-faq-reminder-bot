@@ -6,8 +6,7 @@ from events.views import (
     Events,
     InteractionView,
     DirectInstallView,
-    OAuthRedirectView,
-    CreateAdminView,  # ✅ your class-based admin creator view
+    OAuthRedirectView, 
 )
 
 urlpatterns = [
@@ -25,6 +24,4 @@ urlpatterns = [
     # Static pages
     path('about/', TemplateView.as_view(template_name='about.html'), name='about'),
 
-    # 🧩 Temporary setup route for admin creation
-    path('create-admin/', CreateAdminView.as_view(), name='create-admin'),
 ]
