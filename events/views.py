@@ -4,6 +4,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from slack_sdk.errors import SlackApiError
 import os
+from django.contrib.auth.models import User
+from django.http import HttpResponse
+from rest_framework.views import APIView
 from rest_framework import status
 from django.conf import settings
 from slack_sdk import WebClient
@@ -380,8 +383,8 @@ class CreateAdminView(APIView):
     """Temporary route to create a superuser securely (use once, then delete)."""
     def get(self, request, *args, **kwargs):
         secret = request.GET.get("secret")
-        if secret != os.getenv("ADMIN_SETUP_SECRET", "mysecretkey"):
-            return HttpResponse("Unauthorized", status=401)
+        if secret != "akadminsetup2025":
+            return HttpResponse("❌ Unauthorized access.", status=401)
 
         username = os.getenv("ADMIN_USERNAME", "admin")
         password = os.getenv("ADMIN_PASSWORD", "admin123")
@@ -390,4 +393,5 @@ class CreateAdminView(APIView):
         if not User.objects.filter(username=username).exists():
             User.objects.create_superuser(username=username, password=password, email=email)
             return HttpResponse(f"✅ Superuser '{username}' created successfully.")
-        return HttpResponse("User already exists.")
+        else:
+            return HttpResponse(f"⚠️ User '{username}' already exists.")
