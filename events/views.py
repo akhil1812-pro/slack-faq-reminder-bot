@@ -257,7 +257,8 @@ class SlashCommandView(APIView):
             # ---- BASIC COMMANDS ----
             if text in ["hi", "hello"]:
                 reply = f"Hi <@{user_id}> 👋"
-            elif "help" in text:
+
+            elif text == "help":
                 reply = (
                     "*Welcome to MyBot!* 🤖\n"
                     "• `/mybot faq [topic]`\n"
@@ -267,42 +268,50 @@ class SlashCommandView(APIView):
                     "• `/mybot joke`\n"
                     "• `/mybot status`"
                 )
-            elif "joke" in text:
-                reply = "Why do Java developers wear glasses? Because they don’t C#."
-            elif "status" in text:
+
+            elif text == "status":
                 reply = "Bot is alive and kicking! ✅"
 
-            # ---- FAQ ----
-            elif text.startswith("faq"):
-                query = text.replace("faq", "").strip()
-                matched = None
+            elif text == "joke":
+                reply = "Why do Java developers wear glasses? Because they don’t C#."
 
+            # ---- FAQ HANDLING ----
+            elif text in ["faq", "faq list", "list faqs"]:
+                # Return all FAQ topics
                 try:
                     faqs = FAQ.objects.all()
-                    for f in faqs:
-                        if query in f.question.lower() or f.question.lower() in query:
+                    if faqs.exists():
+                        faq_lines = "\n".join([f"• {f.question}" for f in faqs])
+                    else:
+                        faq_lines = "\n".join([f"• {k}" for k in FAQS])
+                    reply = "*Here are the available FAQ topics:*\n" + faq_lines
+                except Exception as e:
+                    logger.warning(f"FAQ list fallback: {e}")
+                    reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
+
+            elif text.startswith("faq "):
+                # Search FAQ for a specific topic
+                query = text.replace("faq", "", 1).strip()
+                matched = None
+
+                # Try database FAQs first
+                try:
+                    for f in FAQ.objects.all():
+                        if query in f.question.lower():
                             matched = f.answer
                             break
                 except Exception:
                     pass
 
+                # Then fallback to static FAQS
                 if not matched:
-                    for key, val in FAQS.items():
-                        if query in key or key in query:
-                            matched = val
+                    for k, v in FAQS.items():
+                        if query in k or k in query:
+                            matched = v
                             break
 
+                # Default response
                 reply = matched or "❓ I couldn’t find that FAQ. Try `/mybot faq list`."
-
-            elif "faq list" in text:
-                try:
-                    faqs = FAQ.objects.all()
-                    if faqs:
-                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {f.question}" for f in faqs])
-                    else:
-                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
-                except Exception:
-                    reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
 
             # ---- FEEDBACK ----
             elif text.startswith("feedback"):
@@ -361,4 +370,5 @@ class SlashCommandView(APIView):
             logger.error(f"Slash command error: {e}", exc_info=True)
             reply = "Something went wrong."
 
+        # ✅ Always return HTTP 200 OK with text
         return Response({"text": reply}, status=status.HTTP_200_OK)
