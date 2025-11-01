@@ -288,18 +288,28 @@ class SlashCommandView(APIView):
                     reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
             elif "faq" in text:
                 matched = None
+                query = text.replace("faq", "").strip()
+
+                # 1️⃣ Check in database FAQs first
                 try:
                     faqs = FAQ.objects.all()
                     for f in faqs:
-                        if f.question.lower() in text or text in f.question.lower():
+                        if query in f.question.lower() or f.question.lower() in query:
                             matched = f.answer
                             break
                 except Exception:
-                    for k in FAQS:
-                        if k in text or text in k:
-                            matched = FAQS[k]
+                    pass
+
+                # 2️⃣ Fallback to predefined FAQS dictionary
+                if not matched:
+                    for key, val in FAQS.items():
+                        if key in query or query in key:
+                            matched = val
                             break
+
+                 # 3️⃣ Default if still not found
                 reply = matched or "❓ I couldn’t find that FAQ. Try `/mybot list faqs`."
+
             elif "remind" in text:
                 parts = text.split("remind me to", 1)
                 if len(parts) > 1:
