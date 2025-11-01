@@ -1,5 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from slack_sdk.errors import SlackApiError
+import os
 from rest_framework import status
 from django.conf import settings
 from slack_sdk import WebClient
@@ -234,8 +238,9 @@ class Events(APIView):
 
 
 # -------------------------------
-# Slash Commands
+# Slash Commands (Fixed)
 # -------------------------------
+@method_decorator(csrf_exempt, name='dispatch')
 class SlashCommandView(APIView):
     def post(self, request, *args, **kwargs):
         logger.warning(f"Slash command received: {request.data}")
@@ -304,7 +309,8 @@ class SlashCommandView(APIView):
                     elif " at " in task_part:
                         task, time_phrase = task_part.rsplit(" at ", 1)
                     else:
-                        return Response({"text": "Use: `/mybot remind me to [task] in [time]`"}, status=status.HTTP_200_OK)
+                        reply = "Use: `/mybot remind me to [task] in [time]`"
+                        return Response({"text": reply}, status=status.HTTP_200_OK)
                     time_phrase = time_phrase.strip()
                     match = re.search(r"(\d+)\s*(min|mins|minutes?)", time_phrase)
                     if match:
@@ -315,7 +321,7 @@ class SlashCommandView(APIView):
                     if reminder_time:
                         post_at = int(reminder_time.timestamp())
                         client.chat_scheduleMessage(channel=channel_id, text=f"⏰ Reminder: {task}", post_at=post_at)
-                        reply = f"Reminder set for *{task}*!"
+                        reply = f"Reminder set for *{task}*! ⏰"
                     else:
                         reply = "Could not parse time."
             elif "checkin" in text:
@@ -332,8 +338,10 @@ class SlashCommandView(APIView):
                     }]
                 )
                 reply = "Check-in sent!"
+
         except Exception as e:
             logger.error(f"Slash command error: {e}", exc_info=True)
             reply = "Something went wrong."
 
-            return Response({"text": reply}, status=status.HTTP_200_OK)
+        # ✅ Always return an HTTP 200 OK with a valid Slack-friendly message
+        return Response({"text": reply}, status=status.HTTP_200_OK)
