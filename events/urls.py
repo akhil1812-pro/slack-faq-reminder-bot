@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import Events, OAuthRedirectView, SlashCommandView, InteractionView
+from .views import Events, OAuthRedirectView, SlashCommandView, InteractionView, Events, DirectInstallView, OAuthRedirectView
 from .views import DirectInstallView
 
 
