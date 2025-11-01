@@ -19,7 +19,7 @@ class FAQ(models.Model):
 class Feedback(models.Model):
     user_id = models.CharField(max_length=50)
     text = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)  # ✅ add this line
 
     def __str__(self):
         return f"{self.user_id} - {self.text[:30]}"
