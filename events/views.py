@@ -245,7 +245,7 @@ class SlashCommandView(APIView):
     def post(self, request, *args, **kwargs):
         logger.warning(f"Slash command received: {request.data}")
 
-        text = request.data.get("text", "").lower()
+        text = (request.data.get("text") or "").strip().lower()
         user_id = request.data.get("user_id")
         channel_id = request.data.get("channel_id")
 
@@ -254,7 +254,8 @@ class SlashCommandView(APIView):
         reply = "I didn’t understand that. Try `/mybot help`"
 
         try:
-            if "hi" in text:
+            # ---- BASIC COMMANDS ----
+            if text in ["hi", "hello"]:
                 reply = f"Hi <@{user_id}> 👋"
             elif "help" in text:
                 reply = (
@@ -270,27 +271,12 @@ class SlashCommandView(APIView):
                 reply = "Why do Java developers wear glasses? Because they don’t C#."
             elif "status" in text:
                 reply = "Bot is alive and kicking! ✅"
-            elif "list faqs" in text:
-                try:
-                    faqs = FAQ.objects.all()
-                    if faqs:
-                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {f.question}" for f in faqs])
-                    else:
-                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
-                except Exception:
-                    reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
-            elif text.startswith("feedback"):
-                feedback_text = text.replace("feedback", "").strip()
-                if feedback_text:
-                    Feedback.objects.create(user_id=user_id, text=feedback_text)
-                    reply = "Thanks for your feedback! 🙌"
-                else:
-                    reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
-            elif "faq" in text:
-                matched = None
-                query = text.replace("faq", "").strip()
 
-                # 1️⃣ Check in database FAQs first
+            # ---- FAQ ----
+            elif text.startswith("faq"):
+                query = text.replace("faq", "").strip()
+                matched = None
+
                 try:
                     faqs = FAQ.objects.all()
                     for f in faqs:
@@ -300,17 +286,35 @@ class SlashCommandView(APIView):
                 except Exception:
                     pass
 
-                # 2️⃣ Fallback to predefined FAQS dictionary
                 if not matched:
                     for key, val in FAQS.items():
-                        if key in query or query in key:
+                        if query in key or key in query:
                             matched = val
                             break
 
-                 # 3️⃣ Default if still not found
-                reply = matched or "❓ I couldn’t find that FAQ. Try `/mybot list faqs`."
+                reply = matched or "❓ I couldn’t find that FAQ. Try `/mybot faq list`."
 
-            elif "remind" in text:
+            elif "faq list" in text:
+                try:
+                    faqs = FAQ.objects.all()
+                    if faqs:
+                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {f.question}" for f in faqs])
+                    else:
+                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
+                except Exception:
+                    reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
+
+            # ---- FEEDBACK ----
+            elif text.startswith("feedback"):
+                feedback_text = text.replace("feedback", "", 1).strip()
+                if len(feedback_text) > 1:
+                    Feedback.objects.create(user_id=user_id, text=feedback_text)
+                    reply = "Thanks for your feedback! 🙌"
+                else:
+                    reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
+
+            # ---- REMINDER ----
+            elif "remind me to" in text:
                 parts = text.split("remind me to", 1)
                 if len(parts) > 1:
                     task_part = parts[1].strip()
@@ -321,6 +325,7 @@ class SlashCommandView(APIView):
                     else:
                         reply = "Use: `/mybot remind me to [task] in [time]`"
                         return Response({"text": reply}, status=status.HTTP_200_OK)
+
                     time_phrase = time_phrase.strip()
                     match = re.search(r"(\d+)\s*(min|mins|minutes?)", time_phrase)
                     if match:
@@ -328,12 +333,15 @@ class SlashCommandView(APIView):
                         reminder_time = datetime.now() + timedelta(minutes=minutes)
                     else:
                         reminder_time = dateparser.parse(time_phrase)
+
                     if reminder_time:
                         post_at = int(reminder_time.timestamp())
                         client.chat_scheduleMessage(channel=channel_id, text=f"⏰ Reminder: {task}", post_at=post_at)
                         reply = f"Reminder set for *{task}*! ⏰"
                     else:
                         reply = "Could not parse time."
+
+            # ---- CHECKIN ----
             elif "checkin" in text:
                 client.chat_postMessage(
                     channel=channel_id,
@@ -353,5 +361,4 @@ class SlashCommandView(APIView):
             logger.error(f"Slash command error: {e}", exc_info=True)
             reply = "Something went wrong."
 
-        # ✅ Always return an HTTP 200 OK with a valid Slack-friendly message
         return Response({"text": reply}, status=status.HTTP_200_OK)
