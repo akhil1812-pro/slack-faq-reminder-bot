@@ -1,13 +1,16 @@
 from django.contrib import admin
+from .models import Feedback, FAQ, SlackInstallation
 
-# Register your models here.
+@admin.register(Feedback)
+class FeedbackAdmin(admin.ModelAdmin):
+    list_display = ("user_id", "text", "created_at")
+    search_fields = ("user_id", "text")
+    ordering = ("-created_at",)
 
-from django.contrib import admin
-from .models import FAQ
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ("question", "answer")
 
-admin.site.register(FAQ)
-
-from django.contrib import admin
-from .models import Feedback
-
-admin.site.register(Feedback)
+@admin.register(SlackInstallation)
+class SlackInstallationAdmin(admin.ModelAdmin):
+    list_display = ("team_name", "team_id", "bot_token")
