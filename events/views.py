@@ -372,3 +372,22 @@ class SlashCommandView(APIView):
 
         # ✅ Always return HTTP 200 OK with text
         return Response({"text": reply}, status=status.HTTP_200_OK)
+
+from django.contrib.auth.models import User
+from django.http import HttpResponse
+
+class CreateAdminView(APIView):
+    """Temporary route to create a superuser securely (use once, then delete)."""
+    def get(self, request, *args, **kwargs):
+        secret = request.GET.get("secret")
+        if secret != os.getenv("ADMIN_SETUP_SECRET", "mysecretkey"):
+            return HttpResponse("Unauthorized", status=401)
+
+        username = os.getenv("ADMIN_USERNAME", "admin")
+        password = os.getenv("ADMIN_PASSWORD", "admin123")
+        email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username=username, password=password, email=email)
+            return HttpResponse(f"✅ Superuser '{username}' created successfully.")
+        return HttpResponse("User already exists.")
