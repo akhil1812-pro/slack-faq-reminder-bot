@@ -11,11 +11,11 @@ import dateparser
 import re
 import pytz
 from datetime import datetime, timedelta
-from .models import FAQ, Feedback
+from .models import FAQ, Feedback, SlackInstallation  # ✅ Added SlackInstallation model
 from urllib.parse import urlencode
 
 # -------------------------------
-# Configuration and constants
+# Config & constants
 # -------------------------------
 FAQS = {
     "leave policy": "📄 *Leave Policy*\nYou get 24 paid leaves per year. Carry forward up to 12 leaves.",
@@ -31,7 +31,7 @@ SLACK_BOT_USER_TOKEN = getattr(settings, 'SLACK_BOT_USER_TOKEN', None)
 
 
 def get_slack_client(token=None):
-    """Create a Slack WebClient with a given token or the default bot token."""
+    """Return a Slack WebClient for the given token or the default one."""
     return WebClient(token=token or SLACK_BOT_USER_TOKEN)
 
 
@@ -39,83 +39,89 @@ def get_slack_client(token=None):
 # OAuth Install Flow
 # -------------------------------
 class DirectInstallView(APIView):
-    """Redirects users to Slack's authorization page for installation."""
+    """Redirect user to Slack install page"""
     def get(self, request, *args, **kwargs):
-        client_id = settings.SLACK_CLIENT_ID
-        redirect_uri = settings.SLACK_REDIRECT_URI  # e.g. "https://slack-bot-wlyn.onrender.com/slack/oauth_redirect/"
-        scopes = "commands,chat:write,chat:write.public,users:read,channels:read,app_mentions:read"
-
         params = {
-            "client_id": client_id,
-            "scope": scopes,
-            "redirect_uri": redirect_uri,
+            "client_id": settings.SLACK_CLIENT_ID,
+            "scope": "commands,chat:write,chat:write.public,users:read,channels:read,app_mentions:read",
+            "redirect_uri": settings.SLACK_REDIRECT_URI,
         }
-
-        slack_auth_url = "https://slack.com/oauth/v2/authorize?" + urlencode(params)
-        logger.info(f"Generated Slack OAuth URL: {slack_auth_url}")
-        return redirect(slack_auth_url)
+        url = "https://slack.com/oauth/v2/authorize?" + urlencode(params)
+        logger.info(f"Redirecting to Slack install URL: {url}")
+        return redirect(url)
 
 
 class OAuthRedirectView(APIView):
-    """Handles the OAuth redirect from Slack after the user installs the app."""
+    """Handles Slack OAuth redirect after install"""
     def get(self, request, *args, **kwargs):
         code = request.GET.get("code")
         if not code:
             return Response({"error": "Missing code"}, status=status.HTTP_400_BAD_REQUEST)
 
-        client_id = settings.SLACK_CLIENT_ID
-        client_secret = settings.SLACK_CLIENT_SECRET
-        redirect_uri = settings.SLACK_REDIRECT_URI
-
         try:
-            # Exchange code for tokens
             resp = requests.post(
                 "https://slack.com/api/oauth.v2.access",
                 data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
+                    "client_id": settings.SLACK_CLIENT_ID,
+                    "client_secret": settings.SLACK_CLIENT_SECRET,
                     "code": code,
-                    "redirect_uri": redirect_uri,
+                    "redirect_uri": settings.SLACK_REDIRECT_URI,
                 },
                 timeout=10
             )
             data = resp.json()
-            logger.warning(f"Slack OAuth response (without secrets): { {k: v for k, v in data.items() if 'token' not in k} }")
+            logger.info(f"Slack OAuth response (without secrets): { {k:v for k,v in data.items() if 'token' not in k} }")
 
             if not data.get("ok"):
-                logger.error(f"Slack OAuth error: {data}")
-                return Response({"error": "Slack OAuth failed", "details": data}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "OAuth failed", "details": data}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Extract tokens
             bot_token = data.get("access_token") or data.get("bot", {}).get("bot_access_token")
-            team = data.get("team", {}).get("id")
-            app_id = data.get("app_id")
+            team_id = data.get("team", {}).get("id")
+            team_name = data.get("team", {}).get("name")
 
-            # TODO: Save bot_token securely in DB with team info if you want multi-workspace installs
-            logger.info(f"App installed successfully for team {team}")
+            if bot_token and team_id:
+                SlackInstallation.objects.update_or_create(
+                    team_id=team_id,
+                    defaults={"bot_token": bot_token, "team_name": team_name}
+                )
+                logger.info(f"✅ Saved bot token for team: {team_name} ({team_id})")
 
-            # Optionally send confirmation message
+            # Optional welcome message
             try:
                 client = get_slack_client(bot_token)
                 client.chat_postMessage(channel="#general", text="✅ App successfully installed and ready to go!")
             except Exception as e:
                 logger.warning(f"Post-install message failed: {e}")
 
-            # Redirect user to Slack App page or success page
+            app_id = data.get("app_id")
             if app_id:
                 return redirect(f"https://slack.com/app_redirect?app={app_id}")
-            return Response({"status": "App installed successfully"}, status=status.HTTP_200_OK)
+            return Response({"status": "Installation successful"}, status=status.HTTP_200_OK)
 
-        except requests.RequestException as e:
-            logger.error(f"Network error during Slack OAuth: {e}", exc_info=True)
-            return Response({"error": "Network error contacting Slack"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
-            logger.error(f"Unexpected error in OAuthRedirectView: {e}", exc_info=True)
+            logger.error(f"OAuth error: {e}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # -------------------------------
-# Interaction / Event / Slash Command Logic
+# Helpers for fetching workspace token
+# -------------------------------
+def get_token_for_team(request):
+    """Extract team_id and fetch its token from DB"""
+    team_id = request.data.get("team_id") or request.data.get("team")
+    if not team_id and isinstance(request.data, dict) and "event" in request.data:
+        team_id = request.data.get("team_id") or request.data["event"].get("team")
+    token = None
+    if team_id:
+        try:
+            token = SlackInstallation.objects.get(team_id=team_id).bot_token
+        except SlackInstallation.DoesNotExist:
+            logger.warning(f"No bot token found for team {team_id}")
+    return token
+
+
+# -------------------------------
+# Interaction View
 # -------------------------------
 class InteractionView(APIView):
     def post(self, request, *args, **kwargs):
@@ -124,27 +130,37 @@ class InteractionView(APIView):
             user_id = payload["user"]["id"]
             action_value = payload["actions"][0]["value"]
             channel_id = payload["channel"]["id"]
+            team_id = payload.get("team", {}).get("id")
 
+            token = None
+            if team_id:
+                try:
+                    token = SlackInstallation.objects.get(team_id=team_id).bot_token
+                except SlackInstallation.DoesNotExist:
+                    logger.warning(f"No token for team {team_id}")
+
+            client = get_slack_client(token)
             mood_map = {
                 "great": "😊 Glad you're feeling great!",
                 "okay": "😐 Hope your day gets better!",
                 "meh": "😞 Sending good vibes your way!"
             }
-
             reply = mood_map.get(action_value, "Thanks for checking in!")
-            get_slack_client().chat_postMessage(channel=channel_id, text=f"<@{user_id}> {reply}")
+            client.chat_postMessage(channel=channel_id, text=f"<@{user_id}> {reply}")
             return Response(status=status.HTTP_200_OK)
-
         except Exception as e:
             logger.error(f"Interaction error: {e}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# -------------------------------
+# Event View
+# -------------------------------
 class Events(APIView):
     def post(self, request, *args, **kwargs):
         try:
             slack_message = request.data
-            logger.warning(f"Incoming Slack message: {slack_message}")
+            logger.warning(f"Incoming Slack event: {slack_message}")
 
             if slack_message.get("token") != SLACK_VERIFICATION_TOKEN:
                 return Response(status=status.HTTP_403_FORBIDDEN)
@@ -153,83 +169,73 @@ class Events(APIView):
                 return Response({"challenge": slack_message.get("challenge")}, status=status.HTTP_200_OK)
 
             event = slack_message.get("event", {})
-            if event:
-                if event.get("bot_id") or event.get("subtype") == "bot_message":
-                    return Response(status=status.HTTP_200_OK)
+            if not event:
+                return Response(status=status.HTTP_200_OK)
 
-                client = get_slack_client()
+            token = get_token_for_team(request)
+            client = get_slack_client(token)
 
-                if event.get("type") == "member_joined_channel" and event.get("user") and event.get("channel"):
-                    user = event["user"]
-                    channel = event["channel"]
-                    welcome_text = (
-                        f"Hi <@{user}> 👋 Thanks for adding me!\n"
-                        "Here’s what I can do:\n"
-                        "• `/mybot faq [topic]` → Get answers to common questions\n"
-                        "• `/mybot list faqs` → See all available topics\n"
-                        "• `/mybot feedback [your thoughts]` → Share feedback\n"
-                        "• `/mybot remind me to [task] in [time]` → Set reminders\n"
-                        "• `/mybot checkin` → Share how you're feeling\n"
-                        "• `/mybot help` → See all commands"
+            # Ignore bot messages
+            if event.get("bot_id") or event.get("subtype") == "bot_message":
+                return Response(status=status.HTTP_200_OK)
+
+            # Welcome new member
+            if event.get("type") == "member_joined_channel":
+                user = event["user"]
+                channel = event["channel"]
+                welcome_text = (
+                    f"Hi <@{user}> 👋 Thanks for adding me!\n"
+                    "Here’s what I can do:\n"
+                    "• `/mybot faq [topic]`\n"
+                    "• `/mybot feedback [your thoughts]`\n"
+                    "• `/mybot remind me to [task] in [time]`\n"
+                    "• `/mybot checkin`\n"
+                    "• `/mybot help`"
+                )
+                client.chat_postMessage(channel=channel, text=welcome_text)
+                return Response(status=status.HTTP_200_OK)
+
+            # Respond to user messages
+            user = event.get("user")
+            text = event.get("text", "")
+            lowered = text.lower() if isinstance(text, str) else ""
+
+            bot_text = None
+            if user and text:
+                if "hello" in lowered or "start" in lowered:
+                    bot_text = (
+                        f"Hi <@{user}> 👋 I'm your team assistant bot!\n"
+                        "Try `/mybot help` for a list of commands."
                     )
-                    client.chat_postMessage(channel=channel, text=welcome_text)
-                    return Response(status=status.HTTP_200_OK)
+                elif "hi" in lowered:
+                    bot_text = f"Hi <@{user}> 👋"
+                elif "help" in lowered:
+                    bot_text = (
+                        "*Welcome to MyBot!* 🤖\n"
+                        "• `/mybot faq [topic]`\n"
+                        "• `/mybot feedback [your thoughts]`\n"
+                        "• `/mybot remind me to [task] in [time]`\n"
+                        "• `/mybot checkin`\n"
+                        "• `/mybot joke`\n"
+                        "• `/mybot status`"
+                    )
+                elif "joke" in lowered:
+                    bot_text = "Why don’t programmers like nature? It has too many bugs. 🐛"
+                elif "status" in lowered:
+                    bot_text = "All systems go! ✅ I'm running smoothly."
 
-                user = event.get("user")
-                text = event.get("text", "")
-                if not text and event.get("blocks"):
-                    try:
-                        elements = event["blocks"][0]["elements"][0]["elements"]
-                        text = "".join([el["text"] for el in elements if el["type"] == "text"])
-                    except Exception as e:
-                        logger.warning(f"Failed to parse text from blocks: {e}")
-
-                lowered = text.lower() if isinstance(text, str) else ""
-                bot_text = None
-
-                if user and text:
-                    if "hello" in lowered or "start" in lowered:
-                        bot_text = (
-                            f"Hi <@{user}> 👋 I'm your team assistant bot!\n"
-                            "You can try commands like:\n"
-                            "• `/mybot faq leave policy`\n"
-                            "• `/mybot remind me to stretch in 30 minutes`\n"
-                            "• `/mybot checkin`\n"
-                            "• `/mybot help` for more"
-                        )
-                    elif "hi" in lowered:
-                        bot_text = f"Hi <@{user}> 👋"
-                    elif "help" in text:
-                        bot_text = (
-                            "*Welcome to MyBot!* 🤖\n"
-                            "Here’s what I can do:\n"
-                            "• `/mybot faq [topic]` → Get answers to common questions\n"
-                            "• `/mybot list faqs` → See all available topics\n"
-                            "• `/mybot feedback [your thoughts]` → Share feedback\n"
-                            "• `/mybot remind me to [task] in [time]` → Set reminders\n"
-                            "• `/mybot checkin` → Share how you're feeling\n"
-                            "• `/mybot joke` → Hear a tech joke\n"
-                            "• `/mybot status` → Check bot health\n"
-                            "Try `/mybot faq leave policy` or `/mybot feedback I love this bot!`"
-                        )
-                    elif "joke" in lowered:
-                        bot_text = "Why don’t programmers like nature? It has too many bugs. 🐛"
-                    elif "status" in lowered:
-                        bot_text = "All systems go! ✅ I'm running smoothly."
-
-                if bot_text:
-                    try:
-                        client.chat_postMessage(channel=event.get("channel"), text=bot_text)
-                    except Exception as e:
-                        logger.error(f"Slack message failed: {e}", exc_info=True)
-
+            if bot_text:
+                client.chat_postMessage(channel=event.get("channel"), text=bot_text)
             return Response(status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Unhandled exception: {e}", exc_info=True)
+            logger.error(f"Event error: {e}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# -------------------------------
+# Slash Commands
+# -------------------------------
 class SlashCommandView(APIView):
     def post(self, request, *args, **kwargs):
         logger.warning(f"Slash command received: {request.data}")
@@ -237,7 +243,9 @@ class SlashCommandView(APIView):
         text = request.data.get("text", "").lower()
         user_id = request.data.get("user_id")
         channel_id = request.data.get("channel_id")
-        client = get_slack_client()
+
+        token = get_token_for_team(request)
+        client = get_slack_client(token)
         reply = "I didn’t understand that. Try `/mybot help`"
 
         try:
@@ -246,15 +254,12 @@ class SlashCommandView(APIView):
             elif "help" in text:
                 reply = (
                     "*Welcome to MyBot!* 🤖\n"
-                    "Here’s what I can do:\n"
-                    "• `/mybot faq [topic]` → Get answers to common questions\n"
-                    "• `/mybot list faqs` → See all available topics\n"
-                    "• `/mybot feedback [your thoughts]` → Share feedback\n"
-                    "• `/mybot remind me to [task] in [time]` → Set reminders\n"
-                    "• `/mybot checkin` → Share how you're feeling\n"
-                    "• `/mybot joke` → Hear a tech joke\n"
-                    "• `/mybot status` → Check bot health\n"
-                    "Try `/mybot faq leave policy` or `/mybot feedback I love this bot!`"
+                    "• `/mybot faq [topic]`\n"
+                    "• `/mybot feedback [your thoughts]`\n"
+                    "• `/mybot remind me to [task] in [time]`\n"
+                    "• `/mybot checkin`\n"
+                    "• `/mybot joke`\n"
+                    "• `/mybot status`"
                 )
             elif "joke" in text:
                 reply = "Why do Java developers wear glasses? Because they don’t C#."
@@ -263,54 +268,43 @@ class SlashCommandView(APIView):
             elif "list faqs" in text:
                 try:
                     faqs = FAQ.objects.all()
-                    reply = "*Here are the available FAQ topics:*\n"
                     if faqs:
-                        for faq in faqs:
-                            reply += f"• {faq.question}\n"
+                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {f.question}" for f in faqs])
                     else:
-                        for key in FAQS:
-                            reply += f"• {key}\n"
-                except Exception as e:
-                    logger.warning(f"FAQ list error: {e}")
+                        reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
+                except Exception:
                     reply = "*Here are the available FAQ topics:*\n" + "\n".join([f"• {k}" for k in FAQS])
             elif text.startswith("feedback"):
                 feedback_text = text.replace("feedback", "").strip()
-                if not feedback_text:
-                    reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
-                else:
+                if feedback_text:
                     Feedback.objects.create(user_id=user_id, text=feedback_text)
                     reply = "Thanks for your feedback! 🙌"
+                else:
+                    reply = "Please provide feedback after the command, like `/mybot feedback I love this bot!`"
             elif "faq" in text:
                 matched = None
                 try:
                     faqs = FAQ.objects.all()
-                    for faq in faqs:
-                        if faq.question.lower() in text or text in faq.question.lower():
-                            matched = faq.answer
+                    for f in faqs:
+                        if f.question.lower() in text or text in f.question.lower():
+                            matched = f.answer
                             break
-                except Exception as e:
-                    logger.warning(f"FAQ DB error: {e}")
-                    for key in FAQS:
-                        if key in text or text in key:
-                            matched = FAQS[key]
+                except Exception:
+                    for k in FAQS:
+                        if k in text or text in k:
+                            matched = FAQS[k]
                             break
-                reply = matched or "❓ I couldn’t find that FAQ. Try asking about something listed in the admin panel."
+                reply = matched or "❓ I couldn’t find that FAQ. Try `/mybot list faqs`."
             elif "remind" in text:
                 parts = text.split("remind me to", 1)
-                if len(parts) < 2:
-                    reply = "Please use the format: `/mybot remind me to [task] in [time]`"
-                else:
+                if len(parts) > 1:
                     task_part = parts[1].strip()
                     if " in " in task_part:
                         task, time_phrase = task_part.rsplit(" in ", 1)
                     elif " at " in task_part:
                         task, time_phrase = task_part.rsplit(" at ", 1)
                     else:
-                        return Response(
-                            {"text": "Please include both the task and time, like 'remind me to stretch in 30 minutes' or 'submit report at 5:30pm'."},
-                            status=status.HTTP_200_OK
-                        )
-
+                        return Response({"text": "Use: `/mybot remind me to [task] in [time]`"}, status=status.HTTP_200_OK)
                     time_phrase = time_phrase.strip()
                     match = re.search(r"(\d+)\s*(min|mins|minutes?)", time_phrase)
                     if match:
@@ -318,45 +312,28 @@ class SlashCommandView(APIView):
                         reminder_time = datetime.now() + timedelta(minutes=minutes)
                     else:
                         reminder_time = dateparser.parse(time_phrase)
-
-                    if not reminder_time:
-                        reply = "I couldn’t understand the time. Try something like 'in 30 minutes' or 'at 5pm'."
-                    else:
+                    if reminder_time:
                         post_at = int(reminder_time.timestamp())
-                        now = int(datetime.now().timestamp())
-
-                        india_tz = pytz.timezone("Asia/Kolkata")
-                        local_time = reminder_time.astimezone(india_tz)
-
-                        if post_at - now < 60:
-                            post_at = now + 120
-                            reply = f"Reminder set for *{task}* in 2 minutes (adjusted for safety)."
-                        else:
-                            reply = f"Reminder set for *{task}* at {local_time.strftime('%I:%M %p')}!"
-
-                        client.chat_scheduleMessage(
-                            channel=channel_id,
-                            text=f"⏰ Reminder: {task}",
-                            post_at=post_at
-                        )
+                        client.chat_scheduleMessage(channel=channel_id, text=f"⏰ Reminder: {task}", post_at=post_at)
+                        reply = f"Reminder set for *{task}*!"
+                    else:
+                        reply = "Could not parse time."
             elif "checkin" in text:
                 client.chat_postMessage(
                     channel=channel_id,
-                    text="Good morning! How are you feeling today?",
-                    blocks=[
-                        {
-                            "type": "actions",
-                            "elements": [
-                                {"type": "button", "text": {"type": "plain_text", "text": "😊 Great"}, "value": "great"},
-                                {"type": "button", "text": {"type": "plain_text", "text": "😐 Okay"}, "value": "okay"},
-                                {"type": "button", "text": {"type": "plain_text", "text": "😞 Meh"}, "value": "meh"},
-                            ]
-                        }
-                    ]
+                    text="How are you feeling today?",
+                    blocks=[{
+                        "type": "actions",
+                        "elements": [
+                            {"type": "button", "text": {"type": "plain_text", "text": "😊 Great"}, "value": "great"},
+                            {"type": "button", "text": {"type": "plain_text", "text": "😐 Okay"}, "value": "okay"},
+                            {"type": "button", "text": {"type": "plain_text", "text": "😞 Meh"}, "value": "meh"}
+                        ]
+                    }]
                 )
                 reply = "Check-in sent!"
         except Exception as e:
             logger.error(f"Slash command error: {e}", exc_info=True)
-            reply = "Something went wrong while processing your command."
+            reply = "Something went wrong."
 
-        return Response({"text": reply}, status=status.HTTP_200_OK)
+            return Response({"text": reply}, status=status.HTTP_200_OK)

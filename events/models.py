@@ -4,6 +4,9 @@ from django.db import models
 
 from django.db import models
 
+from django.db import models
+
+
 class FAQ(models.Model):
     question = models.CharField(max_length=255, unique=True)
     answer = models.TextField()
@@ -21,3 +24,11 @@ class Feedback(models.Model):
     def __str__(self):
         return f"{self.user_id} - {self.text[:30]}"
 
+class SlackInstallation(models.Model):
+    team_id = models.CharField(max_length=100, unique=True)
+    team_name = models.CharField(max_length=255, null=True, blank=True)
+    bot_token = models.CharField(max_length=255)
+    installed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.team_name or self.team_id}"
